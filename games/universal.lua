@@ -250,7 +250,6 @@ local whitelist = {
 	said = {}
 }
 vape.Libraries.entity = entitylib
-vape.Libraries.whitelist = whitelist
 vape.Libraries.prediction = prediction
 vape.Libraries.hash = hash
 vape.Libraries.auraanims = {
