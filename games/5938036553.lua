@@ -559,11 +559,21 @@ run(function()
 	ProjectileRaycast.RespectCanCollide = true
 	local rand, old = Random.new()
 	
+	local function getMousePosition()
+		if inputService.TouchEnabled then
+			return gameCamera.ViewportSize / 2
+		end
+	
+		return inputService:GetMouseLocation()
+	end
+	
 	local function getTarget(origin, obj)
-		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
+		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then
+			return
+		end
 		--local targetPart = (Random.new().NextNumber(Random.new(), 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and 'Head' or 'RootPart'
 		local targetPart = 'RootPart'
-		local ent = entitylib['Entity'..Mode.Value]({
+		local entity = entitylib['Entity'..Mode.Value]({
 			Range = Range.Value,
 			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
 			Part = targetPart,
@@ -571,10 +581,12 @@ run(function()
 			Players = Target.Players.Enabled,
 			NPCs = Target.NPCs.Enabled
 		})
-		if ent then
-			targetinfo.Targets[ent] = tick() + 1
+	
+		if entity then
+			targetinfo.Targets[entity] = tick() + 1
 		end
-		return ent, ent and ent[targetPart]
+	
+		return entity, entity and entity[targetPart]
 	end
 	
 	local function raycastLoop(origin, pos)
@@ -632,11 +644,11 @@ run(function()
 				local oldent
 				repeat
 					if CircleObject then
-						CircleObject.Position = inputService:GetMouseLocation()
+						CircleObject.Position = getMousePosition()
 					end
 	
 					if AutoFire.Enabled then
-						local ent = entitylib['Entity'..Mode.Value]({
+						local entity = entitylib['Entity'..Mode.Value]({
 							Range = Range.Value,
 							Wallcheck = Target.Walls.Enabled or nil,
 							Part = 'RootPart',
@@ -646,13 +658,14 @@ run(function()
 						})
 	
 						local gun = frontlines.Main.globals.fpv_sol_equipment.curr_equipment
-						ent = gun and gun.type ~= 2 and ent or nil
-						if ent ~= oldent or ent then
-							frontlines.Main.globals.ctrl_states.trigger = ent and true or false
-							if ent then
+						entity = gun and gun.type ~= 2 and entity or nil
+						if entity ~= oldent or entity then
+							frontlines.Main.globals.ctrl_states.trigger = entity and true or false
+							if entity then
 								frontlines.Main.globals.ctrl_ts.trigger = time()
 							end
-							oldent = ent
+	
+							oldent = entity
 						end
 					end
 	
@@ -667,7 +680,9 @@ run(function()
 		end,
 		Tooltip = 'Silently adjusts your aim towards the enemy'
 	})
-	Target = SilentAim:CreateTargets({Players = true})
+	Target = SilentAim:CreateTargets({
+		Players = true
+	})
 	Mode = SilentAim:CreateDropdown({
 		Name = 'Mode',
 		List = {'Mouse', 'Position'},
@@ -698,8 +713,12 @@ run(function()
 		Default = 85,
 		Suffix = '%'
 	})
-	AutoFire = SilentAim:CreateToggle({Name = 'AutoFire'})
-	Wallbang = SilentAim:CreateToggle({Name = 'Wallbang'})
+	AutoFire = SilentAim:CreateToggle({
+		Name = 'AutoFire'
+	})
+	Wallbang = SilentAim:CreateToggle({
+		Name = 'Wallbang'
+	})
 	SilentAim:CreateToggle({
 		Name = 'Range Circle',
 		Function = function(callback)

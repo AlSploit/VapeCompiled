@@ -203,17 +203,18 @@ local frictionTable, oldfrict, entitylib = {}, {}
 local function updateVelocity()
 	if getTableSize(frictionTable) > 0 then
 		if entitylib.isAlive then
-			for _, v in entitylib.character.Character:GetChildren() do
-				if v:IsA('BasePart') and v.Name ~= 'HumanoidRootPart' and not oldfrict[v] then
-					oldfrict[v] = v.CustomPhysicalProperties or 'none'
-					v.CustomPhysicalProperties = PhysicalProperties.new(0.0001, 0.2, 0.5, 1, 1)
+			for _, part in entitylib.character.Character:GetChildren() do
+				if part:IsA('BasePart') and part.Name ~= 'HumanoidRootPart' and not oldfrict[part] then
+					oldfrict[part] = part.CustomPhysicalProperties or 'none'
+					part.CustomPhysicalProperties = PhysicalProperties.new(0.0001, 0.2, 0.5, 1, 1)
 				end
 			end
 		end
 	else
-		for i, v in oldfrict do
-			i.CustomPhysicalProperties = v ~= 'none' and v or nil
+		for part, data in oldfrict do
+			part.CustomPhysicalProperties = data ~= 'none' and data or nil
 		end
+
 		table.clear(oldfrict)
 	end
 end
@@ -239,8 +240,8 @@ local whitelist = {
 	tagcallback = {},
 	data = {WhitelistedUsers = {}},
 	hashes = setmetatable({}, {
-		__index = function(_, v)
-			return hash and hash.sha512(v..'SelfReport') or ''
+		__index = function(_, data)
+			return hash and hash.sha512(data..'SelfReport') or ''
 		end
 	}),
 	hooked = false,
@@ -313,8 +314,8 @@ SpeedMethods = {
 		root.CFrame += dest
 	end,
 	TP = function(options, moveDirection)
-		if options.TPTiming < tick() then
-			options.TPTiming = tick() + options.TPFrequency.Value
+		if options.TPTiming < os.clock() then
+			options.TPTiming = os.clock() + options.TPFrequency.Value
 			SpeedMethods.CFrame(options, moveDirection, 1)
 		end
 	end,
@@ -325,10 +326,11 @@ SpeedMethods = {
 	Pulse = function(options, moveDirection)
 		local root = entitylib.character.RootPart
 		local dt = math.max(options.Value.Value - entitylib.character.Humanoid.WalkSpeed, 0)
-		dt = dt * (1 - math.min((tick() % (options.PulseLength.Value + options.PulseDelay.Value)) / options.PulseLength.Value, 1))
+		dt = dt * (1 - math.min((os.clock() % (options.PulseLength.Value + options.PulseDelay.Value)) / options.PulseLength.Value, 1))
 		root.AssemblyLinearVelocity = (moveDirection * (entitylib.character.Humanoid.WalkSpeed + dt)) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
 	end
 }
+
 for name in SpeedMethods do
 	if not table.find(SpeedMethodList, name) then
 		table.insert(SpeedMethodList, name)
@@ -336,15 +338,15 @@ for name in SpeedMethods do
 end
 
 run(function()
-	entitylib.getUpdateConnections = function(ent)
-		local hum = ent.Humanoid
+	entitylib.getUpdateConnections = function(entity)
+		local hum = entity.Humanoid
 		return {
 			hum:GetPropertyChangedSignal('Health'),
 			hum:GetPropertyChangedSignal('MaxHealth'),
 			{
 				Connect = function()
-					ent.Friend = ent.Player and isFriend(ent.Player) or nil
-					ent.Target = ent.Player and isTarget(ent.Player) or nil
+					entity.Friend = entity.Player and isFriend(entity.Player) or nil
+					entity.Target = entity.Player and isTarget(entity.Player) or nil
 					return {
 						Disconnect = function() end
 					}
@@ -353,29 +355,29 @@ run(function()
 		}
 	end
 
-	entitylib.targetCheck = function(ent)
-		if ent.TeamCheck then
-			return ent:TeamCheck()
+	entitylib.targetCheck = function(entity)
+		if entity.TeamCheck then
+			return entity:TeamCheck()
 		end
-		if ent.NPC then return true end
-		if isFriend(ent.Player) then return false end
-		if not select(2, whitelist:get(ent.Player)) then return false end
+		if entity.NPC then return true end
+		if isFriend(entity.Player) then return false end
+		if not select(2, whitelist:get(entity.Player)) then return false end
 		if vape.Settings.Modules.Options['Teams by server'].Enabled then
 			if not lplr.Team then return true end
-			if not ent.Player.Team then return true end
-			if ent.Player.Team ~= lplr.Team then return true end
-			return #ent.Player.Team:GetPlayers() == #playersService:GetPlayers()
+			if not entity.Player.Team then return true end
+			if entity.Player.Team ~= lplr.Team then return true end
+			return #entity.Player.Team:GetPlayers() == #playersService:GetPlayers()
 		end
 		return true
 	end
 
-	entitylib.getEntityColor = function(ent)
-		ent = ent.Player
-		if not (ent and vape.Settings.Modules.Options['Use team color'].Enabled) then return end
-		if isFriend(ent, true) then
+	entitylib.getEntityColor = function(entity)
+		entity = entity.Player
+		if not (entity and vape.Settings.Modules.Options['Use team color'].Enabled) then return end
+		if isFriend(entity, true) then
 			return Color3.fromHSV(vape.Categories.Friends.Options['Friends color'].Hue, vape.Categories.Friends.Options['Friends color'].Sat, vape.Categories.Friends.Options['Friends color'].Value)
 		end
-		return tostring(ent.TeamColor) ~= 'White' and ent.TeamColor.Color or nil
+		return tostring(entity.TeamColor) ~= 'White' and entity.TeamColor.Color or nil
 	end
 
 	vape:Clean(function()
@@ -831,10 +833,10 @@ run(function()
 				terrain:Clear()
 			end
 
-			for _, v in workspace:GetChildren() do
-				if v ~= terrain and not v:IsDescendantOf(lplr.Character) and not v:IsA('Camera') then
-					v:Destroy()
-					v:ClearAllChildren()
+			for _, obj in workspace:GetChildren() do
+				if obj ~= terrain and not obj:IsDescendantOf(lplr.Character) and not obj:IsA('Camera') then
+					obj:Destroy()
+					obj:ClearAllChildren()
 				end
 			end
 		end,
@@ -892,9 +894,10 @@ run(function()
 		end,
 		trip = function()
 			if entitylib.isAlive then
-				if entitylib.character.RootPart.Velocity.Magnitude < 15 then
-					entitylib.character.RootPart.Velocity = entitylib.character.RootPart.CFrame.LookVector * 15
+				if entitylib.character.RootPart.AssemblyLinearVelocity.Magnitude < 15 then
+					entitylib.character.RootPart.AssemblyLinearVelocity = entitylib.character.RootPart.CFrame.LookVector * 15
 				end
+
 				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.FallingDown)
 			end
 		end,
@@ -917,7 +920,10 @@ run(function()
 
 	task.spawn(function()
 		repeat
-			if whitelist:update(whitelist.loaded) then return end
+			if whitelist:update(whitelist.loaded) then
+				return
+			end
+
 			task.wait(10)
 		until vape.Loaded == nil
 	end)
@@ -1976,12 +1982,13 @@ end)
 local Fly
 local LongJump
 run(function()
-	local Options = {TPTiming = tick()}
+	local Options = {TPTiming = os.clock()}
 	local Mode
 	local FloatMode
 	local State
 	local MoveMethod
-	local Keys
+	local UpKey
+	local DownKey
 	local VerticalValue
 	local BounceLength
 	local BounceDelay
@@ -1999,11 +2006,12 @@ run(function()
 	local Functions
 	Functions = {
 		Velocity = function()
-			entitylib.character.RootPart.Velocity = (entitylib.character.RootPart.Velocity * Vector3.new(1, 0, 1)) + Vector3.new(0, 2.25 + ((up + down) * VerticalValue.Value), 0)
+			entitylib.character.RootPart.AssemblyLinearVelocity = (entitylib.character.RootPart.AssemblyLinearVelocity * Vector3.new(1, 0, 1)) + Vector3.new(0, 2.25 + ((up + down) * VerticalValue.Value), 0)
 		end,
 		Impulse = function(options, moveDirection)
 			local root = entitylib.character.RootPart
 			local diff = (Vector3.new(0, 2.25 + ((up + down) * VerticalValue.Value), 0) - root.AssemblyLinearVelocity) * Vector3.new(0, 1, 0)
+
 			if diff.Magnitude > 2 then
 				root:ApplyImpulse(diff * root.AssemblyMass)
 			end
@@ -2013,6 +2021,7 @@ run(function()
 			if not YLevel then
 				YLevel = root.Position.Y
 			end
+
 			YLevel = YLevel + ((up + down) * VerticalValue.Value * dt)
 			if WallCheck.Enabled then
 				rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
@@ -2022,19 +2031,21 @@ run(function()
 					YLevel = ray.Position.Y + entitylib.character.HipHeight
 				end
 			end
+
 			root.Velocity *= Vector3.new(1, 0, 1)
 			root.CFrame += Vector3.new(0, YLevel - root.Position.Y, 0)
 		end,
 		Bounce = function()
 			Functions.Velocity()
-			entitylib.character.RootPart.Velocity += Vector3.new(0, ((tick() % BounceDelay.Value) / BounceDelay.Value > 0.5 and 1 or -1) * BounceLength.Value, 0)
+			entitylib.character.RootPart.Velocity += Vector3.new(0, ((os.clock() % BounceDelay.Value) / BounceDelay.Value > 0.5 and 1 or -1) * BounceLength.Value, 0)
 		end,
 		Floor = function()
 			Platform.CFrame = down ~= 0 and CFrame.identity or entitylib.character.RootPart.CFrame + Vector3.new(0, -(entitylib.character.HipHeight + 0.5), 0)
 		end,
 		TP = function(dt)
 			Functions.CFrame(dt)
-			if tick() % (FloatTPAir.Value + FloatTPGround.Value) > FloatTPAir.Value then
+
+			if os.clock() % (FloatTPAir.Value + FloatTPGround.Value) > FloatTPAir.Value then
 				OldYLevel = OldYLevel or YLevel
 				rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
 				rayCheck.CollisionGroup = entitylib.character.RootPart.CollisionGroup
@@ -2054,6 +2065,7 @@ run(function()
 			if not YLevel then
 				YLevel = root.Position.Y
 			end
+
 			YLevel = YLevel + ((up + down) * VerticalValue.Value * dt)
 			if root.Position.Y < YLevel then
 				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -2096,7 +2108,6 @@ run(function()
 				for _, v in {'InputBegan', 'InputEnded'} do
 					Fly:Clean(inputService[v]:Connect(function(input)
 						if not inputService:GetFocusedTextBox() then
-							local divided = Keys.Value:split('/')
 							if input.KeyCode == Enum.KeyCode.W then
 								w = v == 'InputBegan' and -1 or 0
 							elseif input.KeyCode == Enum.KeyCode.S then
@@ -2105,14 +2116,18 @@ run(function()
 								a = v == 'InputBegan' and -1 or 0
 							elseif input.KeyCode == Enum.KeyCode.D then
 								d = v == 'InputBegan' and 1 or 0
-							elseif input.KeyCode == Enum.KeyCode[divided[1]] then
-								up = v == 'InputBegan' and 1 or 0
-							elseif input.KeyCode == Enum.KeyCode[divided[2]] then
-								down = v == 'InputBegan' and -1 or 0
 							end
 						end
 					end))
 				end
+
+				Fly:Clean(UpKey.Triggered:Connect(function(isDown)
+					up = isDown and 1 or 0
+				end))
+
+				Fly:Clean(DownKey.Triggered:Connect(function(isDown)
+					down = isDown and -1 or 0
+				end))
 
 				if inputService.TouchEnabled then
 					pcall(function()
@@ -2199,10 +2214,17 @@ run(function()
 		List = {'MoveDirection', 'Direct'},
 		Tooltip = 'MoveDirection - Uses the games input vector for movement\nDirect - Directly calculate our own input vector'
 	})
-	Keys = Fly:CreateDropdown({
-		Name = 'Keys',
-		List = {'Space/LeftControl', 'Space/LeftShift', 'E/Q', 'Space/Q', 'ButtonA/ButtonL2'},
-		Tooltip = 'The key combination for going up & down'
+	UpKey = Fly:CreateBind({
+		Name = 'Up Key',
+		Default = {'Space'},
+		Hold = true,
+		Tooltip = 'Keybind to fly upwards'
+	})
+	DownKey = Fly:CreateBind({
+		Name = 'Down Key',
+		Default = {'LeftControl'},
+		Hold = true,
+		Tooltip = 'Keybind to fly downwards'
 	})
 	Options.Value = Fly:CreateSlider({
 		Name = 'Speed',
@@ -2587,7 +2609,7 @@ run(function()
 	local Face
 	local Overlay = OverlapParams.new()
 	Overlay.FilterType = Enum.RaycastFilterType.Include
-	local Particles, Boxes, AttackDelay = {}, {}, tick()
+	local Particles, Boxes, AttackDelay = {}, {}, os.clock()
 	
 	local function getAttackData()
 		if Mouse.Enabled then
@@ -2605,8 +2627,9 @@ run(function()
 				repeat
 					local interest, tool = getAttackData()
 					local attacked = {}
+	
 					if interest then
-						local plrs = entitylib.AllPosition({
+						local entities = entitylib.AllPosition({
 							Range = SwingRange.Value,
 							Wallcheck = Targets.Walls.Enabled or nil,
 							Part = 'RootPart',
@@ -2615,31 +2638,38 @@ run(function()
 							Limit = Max.Value
 						})
 	
-						if #plrs > 0 then
-							local selfpos = entitylib.character.RootPart.Position
-							local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+						if #entities > 0 then
+							local localPos = entitylib.character.RootPart.Position
+							local localFacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
 	
-							for _, v in plrs do
-								local delta = (v.RootPart.Position - selfpos)
-								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
-								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
+							for _, entity in entities do
+								local delta = (entity.RootPart.Position - localPos)
+								local angle = math.abs(localFacing:Angle(delta * Vector3.new(1, 0, 1)))
+								if angle > (math.rad(AngleSlider.Value) / 2) then
+									continue
+								end
 	
+								targetinfo.Targets[entity] = os.clock() + 1
 								table.insert(attacked, {
-									Entity = v,
+									Entity = entity,
 									Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor
 								})
-								targetinfo.Targets[v] = tick() + 1
 	
-								if AttackDelay < tick() then
-									AttackDelay = tick() + (1 / CPS.GetRandomValue())
+								if AttackDelay < os.clock() then
+									AttackDelay = os.clock() + (1 / CPS.GetRandomValue())
 									tool:Activate()
 								end
 	
-								if Lunge.Enabled and tool.GripUp.X == 0 then break end
-								if delta.Magnitude > AttackRange.Value then continue end
+								if Lunge.Enabled and tool.GripUp.X == 0 then
+									break
+								end
 	
-								Overlay.FilterDescendantsInstances = {v.Character}
-								for _, part in workspace:GetPartBoundsInBox(v.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
+								if delta.Magnitude > AttackRange.Value then
+									continue
+								end
+	
+								Overlay.FilterDescendantsInstances = {entity.Character}
+								for _, part in workspace:GetPartBoundsInBox(entity.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
 									firetouchinterest(interest.Parent, part, 1)
 									firetouchinterest(interest.Parent, part, 0)
 								end
@@ -2647,17 +2677,17 @@ run(function()
 						end
 					end
 	
-					for i, v in Boxes do
-						v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
-						if v.Adornee then
-							v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
-							v.Transparency = 1 - attacked[i].Check.Opacity
+					for index, box in Boxes do
+						box.Adornee = attacked[index] and attacked[index].Entity.RootPart or nil
+						if box.Adornee then
+							box.Color3 = Color3.fromHSV(attacked[index].Check.Hue, attacked[index].Check.Sat, attacked[index].Check.Value)
+							box.Transparency = 1 - attacked[index].Check.Opacity
 						end
 					end
 	
-					for i, v in Particles do
-						v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
-						v.Parent = attacked[i] and gameCamera or nil
+					for index, particle in Particles do
+						particle.Position = attacked[index] and attacked[index].Entity.RootPart.Position or Vector3.new(math.huge, math.huge, math.huge)
+						particle.Parent = attacked[index] and gameCamera or nil
 					end
 	
 					if Face.Enabled and attacked[1] then
@@ -2668,18 +2698,20 @@ run(function()
 					task.wait()
 				until not Killaura.Enabled
 			else
-				for _, v in Boxes do
-					v.Adornee = nil
+				for _, box in Boxes do
+					box.Adornee = nil
 				end
 	
-				for _, v in Particles do
-					v.Parent = nil
+				for _, particle in Particles do
+					particle.Parent = nil
 				end
 			end
 		end,
 		Tooltip = 'Attack players around you\nwithout aiming at them.'
 	})
-	Targets = Killaura:CreateTargets({Players = true})
+	Targets = Killaura:CreateTargets({
+		Players = true
+	})
 	CPS = Killaura:CreateTwoSlider({
 		Name = 'Attacks per Second',
 		Min = 1,
@@ -2717,27 +2749,32 @@ run(function()
 		Max = 10,
 		Default = 10
 	})
-	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
-	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only'})
+	Mouse = Killaura:CreateToggle({
+		Name = 'Require mouse down'
+	})
+	Lunge = Killaura:CreateToggle({
+		Name = 'Sword lunge only'
+	})
 	Killaura:CreateToggle({
 		Name = 'Show target',
 		Function = function(callback)
 			BoxSwingColor.Object.Visible = callback
 			BoxAttackColor.Object.Visible = callback
+	
 			if callback then
 				for i = 1, 10 do
 					local box = Instance.new('BoxHandleAdornment')
 					box.Adornee = nil
 					box.AlwaysOnTop = true
-					box.Size = Vector3.new(3, 5, 3)
 					box.CFrame = CFrame.new(0, -0.5, 0)
+					box.Size = Vector3.new(3, 5, 3)
 					box.ZIndex = 0
-					box.Parent = vape.gui
+					box.Parent = vape.holder
 					Boxes[i] = box
 				end
 			else
-				for _, v in Boxes do
-					v:Destroy()
+				for _, box in Boxes do
+					box:Destroy()
 				end
 				table.clear(Boxes)
 			end
@@ -2763,6 +2800,7 @@ run(function()
 			ParticleColor1.Object.Visible = callback
 			ParticleColor2.Object.Visible = callback
 			ParticleSize.Object.Visible = callback
+	
 			if callback then
 				for i = 1, 10 do
 					local part = Instance.new('Part')
@@ -2791,8 +2829,8 @@ run(function()
 					Particles[i] = part
 				end
 			else
-				for _, v in Particles do
-					v:Destroy()
+				for _, particle in Particles do
+					particle:Destroy()
 				end
 				table.clear(Particles)
 			end
@@ -2802,8 +2840,8 @@ run(function()
 		Name = 'Texture',
 		Default = 'rbxassetid://14736249347',
 		Function = function()
-			for _, v in Particles do
-				v.ParticleEmitter.Texture = ParticleTexture.Value
+			for _, particle in Particles do
+				particle.ParticleEmitter.Texture = ParticleTexture.Value
 			end
 		end,
 		Darker = true,
@@ -2812,8 +2850,8 @@ run(function()
 	ParticleColor1 = Killaura:CreateColorSlider({
 		Name = 'Color Begin',
 		Function = function(hue, sat, val)
-			for _, v in Particles do
-				v.ParticleEmitter.Color = ColorSequence.new({
+			for _, particle in Particles do
+				particle.ParticleEmitter.Color = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
 				})
@@ -2825,8 +2863,8 @@ run(function()
 	ParticleColor2 = Killaura:CreateColorSlider({
 		Name = 'Color End',
 		Function = function(hue, sat, val)
-			for _, v in Particles do
-				v.ParticleEmitter.Color = ColorSequence.new({
+			for _, particle in Particles do
+				particle.ParticleEmitter.Color = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(hue, sat, val))
 				})
@@ -2842,14 +2880,16 @@ run(function()
 		Default = 0.2,
 		Decimal = 100,
 		Function = function(val)
-			for _, v in Particles do
-				v.ParticleEmitter.Size = NumberSequence.new(val)
+			for _, particle in Particles do
+				particle.ParticleEmitter.Size = NumberSequence.new(val)
 			end
 		end,
 		Darker = true,
 		Visible = false
 	})
-	Face = Killaura:CreateToggle({Name = 'Face target'})
+	Face = Killaura:CreateToggle({
+		Name = 'Face target'
+	})
 end)
 
 run(function()
@@ -3317,7 +3357,7 @@ run(function()
 			Darker = true,
 			Visible = false
 		}),
-		TPTiming = tick(),
+		TPTiming = os.clock(),
 		rayCheck = RaycastParams.new()
 	}
 	Options.rayCheck.RespectCanCollide = true
@@ -3870,7 +3910,7 @@ run(function()
 	local Walls
 	local Reference = {}
 	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
+	Folder.Parent = vape.holder
 	
 	local function Added(ent)
 		if not Targets.Players.Enabled and ent.Player then return end
@@ -5672,7 +5712,7 @@ run(function()
 	local FillTransparency
 	local Reference = {}
 	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
+	Folder.Parent = vape.holder
 	
 	local function Add(v)
 		if not table.find(List.ListEnabled, v.Name) then return end
@@ -6148,7 +6188,7 @@ run(function()
 	local Scale
 	local Background
 	WaypointFolder = Instance.new('Folder')
-	WaypointFolder.Parent = vape.gui
+	WaypointFolder.Parent = vape.holder
 	
 	Waypoints = vape.Categories.Render:CreateModule({
 		Name = 'Waypoints',
@@ -6372,10 +6412,10 @@ run(function()
 		Name = 'AutoRejoin',
 		Function = function(callback)
 			if callback then
-				local check
+				local rejoinCheck
 				AutoRejoin:Clean(guiService.ErrorMessageChanged:Connect(function(str)
-					if (not check or guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectLuaKick) and guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectConnectionLost and not str:lower():find('ban') then
-						check = true
+					if (not rejoinCheck or guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectLuaKick) and guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectConnectionLost and not str:lower():find('ban') then
+						rejoinCheck = true
 						serverHop(nil, Sort.Value)
 					end
 				end))

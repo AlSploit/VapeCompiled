@@ -2255,6 +2255,7 @@ function vape:Remove(obj)
 	local container = (self.Modules[obj] and self.Modules or self.Legit.Modules[obj] and self.Legit.Modules or self.Categories)
 	if container and container[obj] then
 		local component = container[obj]
+		local isModule = component.Type == 'Module'
 		if self.ThreadFix then
 			setthreadidentity(8)
 		end
@@ -2274,6 +2275,10 @@ function vape:Remove(obj)
 
 		loopClean(component)
 		container[obj] = nil
+
+		if isModule then
+			self:SortCategories()
+		end
 	end
 end
 
@@ -2322,6 +2327,23 @@ function vape:SaveOptions(obj)
 	end
 
 	return data
+end
+
+function vape:SortCategories()
+	local sorting = {}
+	for _, module in self.Modules do
+		sorting[module.Category] = sorting[module.Category] or {}
+		table.insert(sorting[module.Category], module.Name)
+	end
+
+	for _, sort in sorting do
+		table.sort(sort)
+		for index, name in sort do
+			self.Modules[name].Index = index
+			self.Modules[name].Object.LayoutOrder = index
+			self.Modules[name].Children.LayoutOrder = index
+		end
+	end
 end
 
 function vape:Uninject()
@@ -2412,7 +2434,7 @@ end
 components = {
 	Bind = function(props, children, api)
 		local component = {
-			Hold = false,
+			Hold = props.Hold or false,
 			Keys = {},
 			Triggered = createSignal(),
 			Type = 'Bind'
@@ -5956,21 +5978,7 @@ components = {
 		end
 		
 		vape.Modules[props.Name] = component
-		
-		local sorting = {}
-		for _, module in vape.Modules do
-			sorting[module.Category] = sorting[module.Category] or {}
-			table.insert(sorting[module.Category], module.Name)
-		end
-		
-		for _, sort in sorting do
-			table.sort(sort)
-			for index, name in sort do
-				vape.Modules[name].Index = index
-				vape.Modules[name].Object.LayoutOrder = index
-				vape.Modules[name].Children.LayoutOrder = index
-			end
-		end
+		vape:SortCategories()
 		
 		return component
 	end,
